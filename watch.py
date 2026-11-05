@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -55,15 +56,26 @@ def parse(page):
     return jobs
 
 
-def send_telegram(token, chat_id, job, location_name):
-    msg = (f"🆕 <b>{html.escape(job['title'])}</b>\n"
-           f"🏢 {html.escape(job['company'])}\n"
-           f"📍 {html.escape(job['location'])} · {location_name}\n"
-           f"🗓 {job['posted']}\n"
-           f"{job['url']}")
-    data = urllib.parse.urlencode({"chat_id": chat_id, "text": msg, "parse_mode": "HTML",
+def job_message(job, location_name):
+    return (f"🆕 <b>{html.escape(job['title'])}</b>\n"
+            f"🏢 {html.escape(job['company'])}\n"
+            f"📍 {html.escape(job['location'])} · {location_name}\n"
+            f"🗓 {job['posted']}\n"
+            f"{job['url']}")
+
+
+def send_telegram(token, chat_id, msg):
+    """Send one HTML message; returns True on success and logs Telegram's reason on failure."""
+    data = urllib.parse.urlencode({"chat_id": chat_id.strip(), "text": msg, "parse_mode": "HTML",
                                    "disable_web_page_preview": "true"}).encode()
-    urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data, timeout=30)
+    try:
+        urllib.request.urlopen(f"https://api.telegram.org/bot{token.strip()}/sendMessage", data=data, timeout=30)
+        return True
+    except urllib.error.HTTPError as e:
+        print(f"! telegram: {e} {e.read().decode('utf-8', 'replace')}")
+    except Exception as e:
+        print(f"! telegram: {e}")
+    return False
 
 
 def main():
@@ -95,17 +107,22 @@ def main():
             time.sleep(2)
 
     now = datetime.now(timezone.utc)
-    sent = 0
+    sent, telegram_failed = 0, 0
     for job, loc_name in found[:cfg["max_messages_per_run"]]:
         print(f"+ {job['title']} | {job['company']} | {job['location']} | {job['url']}")
         if not dry:
-            try:
-                send_telegram(token, chat_id, job, loc_name)
-                sent += 1
-            except Exception as e:
-                print(f"! telegram: {e}")
+            if not send_telegram(token, chat_id, job_message(job, loc_name)):
+                telegram_failed += 1
                 continue
+            sent += 1
         seen[job["id"]] = now.date().isoformat()
+
+    # Manual runs ("Run workflow") always send a status message, so Telegram can be tested anytime.
+    if not dry and os.getenv("GITHUB_EVENT_NAME") == "workflow_dispatch":
+        status = (f"✅ Job Watcher is working\nNew matching jobs this run: {len(found)} (sent {sent})\n"
+                  f"Searches failed: {errors}")
+        if not send_telegram(token, chat_id, status):
+            telegram_failed += 1
 
     cutoff = (now - timedelta(days=cfg["keep_seen_days"])).date().isoformat()
     seen = {k: v for k, v in seen.items() if v >= cutoff}
@@ -113,6 +130,19 @@ def main():
         with open(os.path.join(ROOT, "seen.json"), "w", encoding="utf-8") as f:
             json.dump(seen, f, indent=0, sort_keys=True)
     print(f"matches={len(found)} sent={sent} search_errors={errors} dry_run={dry}")
+
+    # In GitHub Actions, turn silent problems into a failed (red) run with a clear reason.
+    if os.getenv("GITHUB_ACTIONS"):
+        problems = []
+        if dry:
+            problems.append("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secrets are missing or empty")
+        if telegram_failed and sent == 0:
+            problems.append("Telegram rejected every message (check the token, the chat id, and that you pressed Start)")
+        if errors == len(cfg["locations"]) * len(cfg["keywords"]):
+            problems.append("every LinkedIn search failed (blocked or rate-limited)")
+        if problems:
+            print("::error::" + " | ".join(problems))
+            sys.exit(1)
 
 
 if __name__ == "__main__":
