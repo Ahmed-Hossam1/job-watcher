@@ -8,4 +8,4 @@ Checks LinkedIn's public job search every ~15 minutes (GitHub Actions) and sends
 - Secrets (repo → Settings → Secrets and variables → Actions): `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
 
 Experience levels (`f_E`): 1 Internship, 2 Entry level, 3 Associate, 4 Mid-Senior, 5 Director.
-LinkedIn geoIds: Egypt `106155005`, Worldwide `92000000`.
+LinkedIn geoIds: Egypt `106155005`, European Union `91000000`, Europe incl. UK `100506914`, Worldwide `92000000`.
