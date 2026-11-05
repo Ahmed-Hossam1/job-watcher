@@ -1,0 +1,15 @@
+{
+  "keywords": ["Frontend Developer", "Frontend Engineer", "React Developer", "Next.js Developer", "React.js"],
+  "locations": [
+    { "name": "Egypt (Remote)", "geoId": "106155005" },
+    { "name": "Worldwide (Remote)", "geoId": "92000000" }
+  ],
+  "remote_only": true,
+  "experience_levels": ["2", "3", "4"],
+  "posted_within_seconds": 7200,
+
+  "title_must_match": "front[\\s-]?end|frontend|react|next\\.?js",
+  "title_exclude": "\\b(senior|sr\\.?|lead|principal|staff|head|manager|architect|director)\\b|angular|vue|back[\\s-]?end|\\bjava\\b|\\.net|\\bphp\\b|laravel|wordpress|react native|mobile",
+  "max_messages_per_run": 15,
+  "keep_seen_days": 21
+}
