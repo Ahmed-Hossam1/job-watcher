@@ -51,16 +51,28 @@ def parse(page):
             "company": text(r'base-search-card__subtitle">(.*?)</h4>', block),
             "location": text(r'job-search-card__location">(.*?)</span>', block),
             "posted": text(r'datetime="([^"]+)"', block),
+            "ago": re.sub(r"\s+", " ", text(r"<time[^>]*>(.*?)</time>", block)),
             "url": f"https://www.linkedin.com/jobs/view/{job_id.group(1)}/",
         })
     return jobs
+
+
+UNIT_MINUTES = {"second": 0, "minute": 1, "hour": 60, "day": 1440, "week": 10080, "month": 43200}
+
+
+def age_minutes(ago):
+    """'5 minutes ago' -> 5, '3 hours ago' -> 180; unknown -> very old (sorted last)."""
+    if re.search(r"just now|moments? ago", ago, re.I):
+        return 0
+    m = re.search(r"(\d+)\s*(second|minute|hour|day|week|month)", ago, re.I)
+    return int(m.group(1)) * UNIT_MINUTES[m.group(2).lower()] if m else 10 ** 6
 
 
 def job_message(job, location_name):
     return (f"🆕 <b>{html.escape(job['title'])}</b>\n"
             f"🏢 {html.escape(job['company'])}\n"
             f"📍 {html.escape(job['location'])} · {location_name}\n"
-            f"🗓 {job['posted']}\n"
+            f"🗓 {job['posted']}" + (f" · ⏱ {html.escape(job['ago'])}" if job.get("ago") else "") + "\n"
             f"{job['url']}")
 
 
@@ -108,8 +120,11 @@ def main():
 
     now = datetime.now(timezone.utc)
     sent, telegram_failed = 0, 0
-    for job, loc_name in found[:cfg["max_messages_per_run"]]:
-        print(f"+ {job['title']} | {job['company']} | {job['location']} | {job['url']}")
+    # Keep the newest jobs, then send oldest -> newest so the newest job is the last (bottom) message.
+    found.sort(key=lambda f: age_minutes(f[0].get("ago", "")))
+    batch = list(reversed(found[:cfg["max_messages_per_run"]]))
+    for job, loc_name in batch:
+        print(f"+ [{job.get('ago')}] {job['title']} | {job['company']} | {job['location']} | {job['url']}")
         if not dry:
             if not send_telegram(token, chat_id, job_message(job, loc_name)):
                 telegram_failed += 1
