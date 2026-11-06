@@ -5,6 +5,8 @@ on:
     # Off-peak minutes: GitHub often delays or drops schedules on :00/:15/:30/:45.
     - cron: "7,22,37,52 * * * *"   # every 15 min
   workflow_dispatch:          # "Run workflow" button for manual runs
+  repository_dispatch:        # external every-15-min trigger (cron-job.org), no status message
+    types: [tick]
 
 permissions:
   contents: write             # to save seen.json back to the repo

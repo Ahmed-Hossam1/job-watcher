@@ -8,7 +8,7 @@
   ],
   "remote_only": true,
   "experience_levels": ["2", "3", "4"],
-  "posted_within_seconds": 7200,
+  "posted_within_seconds": 86400,
 
   "title_must_match": "front[\\s-]?end|frontend|react|next\\.?js|\\bui\\b.*(developer|engineer)|javascript|typescript|web developer",
   "title_exclude": "\\b(senior|sr\\.?|lead|principal|staff|head|manager|architect|director)\\b|angular|vue|back[\\s-]?end|\\bjava\\b|\\.net|\\bphp\\b|laravel|wordpress|react native|mobile",
